@@ -1,0 +1,473 @@
+import cmath
+import tkinter
+import numpy
+import numpy as np
+import pandas as pd
+import seaborn as sn
+import math
+import array
+from tkinter import *
+import string
+import matplotlib.pyplot as plt
+import time
+from cmath import exp
+import warnings
+from sklearn.metrics import confusion_matrix
+
+# weights are [prev,next] concatenated with bias ---> [prev+1,next]
+# print(df.info())
+global df
+warnings.filterwarnings('ignore')
+global classNameCol
+
+
+# classNameCol = np.array([len(df[0])][1])
+
+
+def datasetfunction(datasetname, func):
+    global df
+    if datasetname == "Other":
+        noOfLabels = 10
+        if func == "Training":
+
+            df = pd.read_csv(r'C:\Users\Kamel\Downloads\archive\mnist_train.csv')
+        else:
+            df = pd.read_csv(r'C:\Users\Kamel\Downloads\archive\mnist_test.csv')
+
+        allData = (df.iloc[:, 1:]).to_numpy()
+        classNameCol = df[['label']].to_numpy()
+        return allData, classNameCol, noOfLabels
+
+    else:
+        noOfLabels = 3
+        df = pd.read_csv(r'C:\Users\Kamel\Downloads\penguins.csv')
+        df["body_mass_g"] = df["body_mass_g"].div(1000).round(2)
+        df['bill_length_mm'] = (df['bill_length_mm']-df['bill_length_mm'].min())/(df['bill_length_mm'].max()-df['bill_length_mm'].min())
+        df['bill_depth_mm'] = (df['bill_depth_mm'] - df['bill_depth_mm'].min()) / (df['bill_depth_mm'].max() - df['bill_depth_mm'].min())
+        df['flipper_length_mm'] = (df['flipper_length_mm'] - df['flipper_length_mm'].min()) / (df['flipper_length_mm'].max() - df['flipper_length_mm'].min())
+        df['body_mass_g'] = (df['body_mass_g'] - df['body_mass_g'].min()) / (df['body_mass_g'].max() - df['body_mass_g'].min())
+
+
+        mostFrequent = df['gender'].value_counts().idxmax()
+        df["gender"].fillna(mostFrequent, inplace=True)
+        allData = (df.iloc[:, 1:]).to_numpy()
+        classNameCol = df[['species']].to_numpy()
+        # print(classNameCol)
+
+        for y in range(len(classNameCol)):
+            if classNameCol[y][0] == "Adelie":
+                classNameCol[y][0] = 0
+
+            if classNameCol[y][0] == "Gentoo":
+                classNameCol[y][0] = 1
+            if classNameCol[y][0] == "Chinstrap":
+                classNameCol[y][0] = 2
+        # print(classNameCol)
+        return allData, classNameCol, noOfLabels
+
+
+# weights = np.random.uniform(low=-1, high=1, size=(, 1))
+def trainingSamples(alldata):
+    if len(alldata) == 90:
+        for i in range(90):
+            if alldata[i][3] == "female":
+                alldata[i][3] = 1
+            elif alldata[i][3] == "male":
+                alldata[i][3] = 0
+
+    elif len(alldata) == 60:
+        for i in range(60):
+            if alldata[i][3] == "female":
+                alldata[i][3] = 1
+            elif alldata[i][3] == "male":
+                alldata[i][3] = 0
+    return alldata
+
+
+
+def trainRange(Matrix):
+    # 30 rows all colomns
+    if len(Matrix) == 150:
+
+        arr1 = Matrix[0:30, :]
+        arr2 = Matrix[51:81, :]
+        arr3 = Matrix[101:131, :]
+        trainData = np.concatenate((arr1, arr2, arr3), axis=0)
+
+        return trainData
+    else:
+        return Matrix
+
+
+def testRange(Matrix):
+    if len(Matrix) == 150:
+        arr4 = Matrix[30:51, :]
+        arr5 = Matrix[81:101, :]
+        arr6 = Matrix[131:151, :]
+        testData = np.concatenate((arr4, arr5, arr6), axis=0)
+        return testData
+    else:
+        return Matrix
+
+
+def sigmoidfunction(x):
+    return (1 / (1 + np.exp(-x)))
+
+
+def derOffunction(x, nameOfFun):
+    if nameOfFun == "sigmoid":
+        return x * (1 - x)
+    else:
+        return 1 - (x * x)
+
+
+def htanfunction(z):
+    y = ((1 - np.exp(-z)) / (1 + np.exp(-z)))
+    return y
+
+def softmax(vector):
+ e = np.exp(vector)
+ return e / e.sum()
+
+def training(e_num, inputwithbias, allweights, activation, l_rate, noOflayer, noOfneurons, bias, targets, noOfClasses):
+    forward1 = []
+    # get number of columns
+    numberoffeatures = noOfClasses
+    outputnet = []
+    # get number of rows
+    numberofrows = len(inputwithbias)
+
+    listoflastlayer = []
+    listOfSigmas = []
+    derrrr = []
+    print(e_num)
+    for e in range(e_num):
+        np.random.shuffle(inputwithbias)
+
+        noerrorcounter = 0
+        for r in range(numberofrows):
+            cost=0
+            p3 = inputwithbias[r][:]
+            temp = inputwithbias[r][:]
+            forward1 = []
+            forwarddd=[]
+            for i in range(noOflayer):
+                listofnet = []
+                noact=[]
+                for f in range(noOfneurons[i]):
+                    layer = float(np.dot(temp, allweights[i][:, f]))
+                    noact.append(layer)
+                    if activation == "sigmoid":
+                        listofnet.append(sigmoidfunction(layer))
+                    else:
+                        listofnet.append(htanfunction(layer))
+                if bias == 1:
+                    listofnet.append(1)
+                    noact.append(1)
+                elif bias == 0:
+                    listofnet.append(0)
+                    noact.append(0)
+                temp = np.array(listofnet)
+                kh = np.array(noact)
+                forwarddd.append(kh)
+                forward1.append(temp)
+             # neurons of output layer only
+            listoflastlayer = []
+            for a in range(noOfClasses):
+                if activation=="sigmoid":
+                   layerl = sigmoidfunction(float(np.dot(forward1[-1], allweights[noOflayer][:, a])))
+                   listoflastlayer.append(layerl)
+                else:
+                    layerl = htanfunction(float(np.dot(forward1[-1], allweights[noOflayer][:, a])))
+                    listoflastlayer.append(layerl)
+            temp2 = np.array(listoflastlayer)
+            forward1.append(temp2)
+            listOfSigmas = []
+
+            # afteract=[]
+            #
+            # for c in range(len(temp2)):
+            #     if activation == "sigmoid":
+            #         afteract.append(sigmoidfunction(temp2[c]))
+            #     else:
+            #         afteract.append(htanfunction(temp2[c]))
+            if targets[r]==0:
+               targetss = [1,0,0]
+            elif targets[r] ==1:
+                targetss=[0,1,0]
+            else:
+                targetss=[0,0,1]
+            cost += (sum((targetss[i]-temp2[i])**2 for i in range(noOfClasses)))
+            # for c in range(noOfClasses):
+            #     if targets[r] == c:
+            #         cost += pow((1-afteract[c]),2)
+            #     else :
+            #         cost += pow((0-afteract[c]),2)
+
+            # backpropagation
+            # computing errors signal in the output layer and propagate them to hidden layers
+
+            for y in range(noOfClasses):
+                # if activation == "sigmoid":
+                #     outputActivation = sigmoidfunction(forward1[-1][y])
+                #
+                # else:
+                #     outputActivation = htanfunction(forward1[-1][y])
+                dervofoutput = derOffunction(temp2[y], activation)
+                sigmaoutput = dervofoutput * (targets[r] - temp2[y])
+                listOfSigmas.append(sigmaoutput)
+
+            # return outputActivation
+            rrr = []
+            for x in range(len(listOfSigmas)):
+                rrr.append(listOfSigmas[x][0])
+
+            outputlayer = forward1.pop()
+            outputnet.append(outputlayer)
+            outAct = []
+            for a in range(len(outputlayer)):
+                if activation == "sigmoid":
+                    if outputlayer[a] > 0.5:
+                        outact = 1
+                    else :
+                        outact = 0
+                else:
+                    if outputlayer[a] > 0:
+                        outact = 1
+                    else:
+                        outact = 0
+                outAct.append(outact)
+            # return outAct
+            var = 0
+            max = outAct[0]
+            for er in range(len(outAct)):
+                if max < outAct[er]:
+                    max = outAct[er]
+                    var = er
+
+            # print(var)
+            if var == targets[r]:
+                noerrorcounter += 1
+            # return var
+            # return max
+            # list of lists of derivative of activation function of each layer
+            derofforward1 = []
+            allderivatives = []
+            # derivative of f(net) of each layer
+            for g in range(len(forward1)):
+                listofFnet = []
+
+                listofFnet =forward1[g]
+
+                p = np.array(derOffunction(listofFnet, activation))
+                derrrr.append(p)
+
+            for x in range(len(noOfneurons)):
+                yty = np.array(derrrr[x][0:-1])
+                allderivatives.append(yty)
+            # return derrrr
+            allderivatives.reverse()
+
+            forward1.reverse()
+
+            copyweights = allweights.copy()
+            copyweights.reverse()
+
+            reversednofneurons = noOfneurons.copy()
+            reversednofneurons.reverse()
+
+            copyweightswithoutbias = []
+            for x in range(len(noOfneurons)):
+                u = copyweights[x][0:-1][:]
+                copyweightswithoutbias.append(u)
+
+            lisofsigtemp = listOfSigmas
+            listoflists = []
+            # print(copyweightswithoutbias)
+            for n in range(len(reversednofneurons)):
+                listofallsigmas = []
+
+                t = np.array(np.dot(copyweightswithoutbias[n][:][:], lisofsigtemp))
+
+                sigmaofhiddenlayer = t * (allderivatives[n][:].reshape(reversednofneurons[n], 1))
+
+                lisofsigtemp = np.array(sigmaofhiddenlayer)
+                listofallsigmas = lisofsigtemp
+
+                listoflists.append(listofallsigmas)
+            # return listoflists
+            listoflists.reverse()
+            listoflists.append(np.expand_dims((np.array(rrr)), 1))
+            # forward1.reverse()
+            # forward1.append(outputlayer)
+            # forward 2
+            forwarddd.insert(0, p3.reshape(len(p3), 1))
+            newWeights = []
+            for w in range(len(allweights)):
+                loo = l_rate * listoflists[w][:]
+                loo2 = np.dot(loo[0][:], forwarddd[w][:].reshape(1, len(forwarddd[w][:])))
+                loo3 = np.array(allweights[w] + (np.expand_dims(loo2.transpose(), 1)))
+                newWeights.append(loo3)
+            del outputlayer
+
+    # print(noerrorcounter)
+    return newWeights, noerrorcounter
+
+
+def Accuracy(noerrorcounter, noOfrows):
+    accuracy = noerrorcounter/noOfrows*100
+    print(accuracy,"%")
+
+def testing(inputwithbias, newWeights, activation, l_rate, noOflayer, noOfneurons, bias, targets, noOfClasses):
+    # get number of rows
+        numberofrows = len(inputwithbias)
+        noerrorcounter2 = 0
+        outputnet = []
+    # for e in range(e_num):
+        listofactualvalu = []
+        for r in range(numberofrows):
+            temp = inputwithbias[r][:]
+            forward1 = []
+
+            for i in range(noOflayer):
+                listofnet = []
+                for f in range(noOfneurons[i]):
+                    layer = float(np.dot(temp, newWeights[i][:, f]))
+                    listofnet.append(layer)
+
+                if bias == 1:
+                    listofnet.append(1)
+                elif bias == 0:
+                    listofnet.append(0)
+                temp = np.array(listofnet)
+                forward1.append(temp)
+
+            # neurons of output layer only
+            listoflastlayer = []
+            for a in range(noOfClasses):
+
+                layerl = float(np.dot(forward1[-1], newWeights[noOflayer][:, a]))
+                listoflastlayer.append(layerl)
+
+            temp2 = np.array(listoflastlayer)
+            forward1.append(temp2)
+            ActivationNet = []
+
+            outputlayer = forward1.pop()
+            outputnet.append(outputlayer)
+            for g in range(len(forward1)):
+
+                if activation == "sigmoid":
+                    aa = sigmoidfunction(forward1[g].astype(float))
+
+                else:
+                    aa = htanfunction(forward1[g].astype(float))
+                ActivationNet.append(aa)
+
+            listOfActNet = []
+
+            for y in range(noOfClasses):
+                if activation == "sigmoid":
+                    outputActivation = sigmoidfunction(outputlayer[y])
+                    if outputActivation > 0.5:
+                        outputActivation = 1
+                    else:
+                        outputActivation = 0
+                else:
+                    outputActivation = htanfunction(outputlayer[y])
+                    if outputActivation > 0:
+                        outputActivation = 1
+                    else:
+                        outputActivation = 0
+                listOfActNet.append(outputActivation)
+            # return listOfActNet
+            var2 = 0
+            max2 = listOfActNet[0]
+
+            for er2 in range(len(listOfActNet)):
+
+                if max2 < listOfActNet[er2]:
+                    max2 = listOfActNet[er2]
+                    var2 = er2
+
+            # print(var)
+            if var2 == targets[r]:
+                noerrorcounter2 += 1
+
+
+            actualval = []
+
+            for jk in range(noOfClasses):
+                if var2 == jk:
+
+                    actualval.append(1)
+                else:
+
+                    actualval.append(0)
+            listofactualvalu.append(actualval)
+        return listofactualvalu, noerrorcounter2
+
+
+            # ConfusionMatrix = [[tpos, fpos], [fneg, tpos]]
+
+def ConfusionMatrix(lisofactual,targets):
+    c1_c1 = 0
+    c2_c2 = 0
+    c3_c3 = 0
+    c1_c2 = 0
+    c1_c3 = 0
+    c2_c1 = 0
+    c2_c3 = 0
+    c3_c1 = 0
+    c3_c2 = 0
+    print(len(lisofactual))
+    for c in range(len(lisofactual)):
+
+        t =lisofactual[c]
+        # if t[np.array([x]).item()] == 1:
+        #
+        #    if targets[c]== 0:
+        #        c1_c1 += 1
+        #    elif targets[c]==1:
+        #        c1_c2 += 1
+        #    elif targets[c]==2:
+        #        c1_c3 += 1
+        if targets[c]==0:
+            if t[np.array([0]).item()]==1:
+                 c1_c1 += 1
+            elif t[np.array([1]).item()]==1:
+                c1_c2 +=1
+            elif t[np.array([2]).item()]==1:
+                c1_c3 +=1
+        elif targets[c]==1:
+            if t[np.array([0]).item()]==1:
+                 c2_c1 += 1
+            elif t[np.array([1]).item()]==1:
+                c2_c2 +=1
+            elif t[np.array([2]).item()]==1:
+                c2_c3 +=1
+        elif targets[c]==2:
+            if t[np.array([0]).item()]==1:
+                 c3_c1 += 1
+            elif t[np.array([1]).item()]==1:
+                c3_c2 +=1
+            elif t[np.array([2]).item()]==1:
+                c3_c3 +=1
+    # return class1,class2,class3
+    print(c1_c1,c1_c2,c1_c3)
+    print(c2_c1,c2_c2,c2_c3)
+    print(c3_c1,c3_c2,c3_c3)
+    our_confusion_matrix=[[c1_c1,c1_c2,c1_c3],
+                          [c2_c1,c2_c2,c3_c3],
+                          [c3_c1,c3_c2,c3_c3]]
+
+    df_cm=pd.DataFrame(our_confusion_matrix,index=[i for i in [0,1,2]],columns=[i for i in [0,1,2]])
+    plt.figure(figsize=(5,4))
+    sn.heatmap(df_cm,annot=True)
+    plt.title('Confusion matrix')
+    plt.ylabel('Actuals')
+    plt.xlabel('predicted')
+    plt.show()
+
+
+
